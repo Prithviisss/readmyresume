@@ -16,11 +16,40 @@
   --color-badge-green-text: #254d4a;
   --color-badge-red-text: #752522;
   --color-badge-yellow-text: #73321b;
+
+  /* Theme-aware variables */
+  --bg: #ffffff;
+  --text: #0f172a;
+  --muted-text: #6b7280;
+  --card-bg: #ffffff;
+  --card-border: #e6e9ef;
+  --category-bg: #f8fafc;
+  --primary-1: #8e98ff;
+  --primary-2: #606beb;
+  --accent: #717dff;
+  --shadow: 0 8px 24px rgba(2,6,23,0.08);
+}
+
+/* Dark theme overrides */
+.theme-dark {
+  --bg: #0b1220;
+  --text: #e6eef8;
+  --muted-text: #9aa6bf;
+  --card-bg: #0e1624;
+  --card-border: rgba(255,255,255,0.04);
+  --category-bg: rgba(255,255,255,0.02);
+  --primary-1: #6f7bff;
+  --primary-2: #4049d8;
+  --accent: #4957eb;
+  --shadow: 0 12px 36px rgba(2,6,23,0.6);
 }
 
 html,
 body {
-  @apply bg-white;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  transition: background-color .3s ease, color .3s ease;
 }
 
 main {
@@ -38,11 +67,19 @@ label {
   @apply text-dark-200;
 }
 input {
-  @apply w-full p-4 inset-shadow rounded-2xl focus:outline-none bg-white;
+  @apply w-full p-4 inset-shadow rounded-2xl focus:outline-none;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
 }
 
 textarea {
-  @apply w-full p-4 inset-shadow rounded-2xl focus:outline-none bg-white;
+  @apply w-full p-4 inset-shadow rounded-2xl focus:outline-none;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
 }
 
 form {
@@ -65,7 +102,10 @@ form {
   .resume-summary {
     @apply flex flex-row items-center justify-center p-4 gap-4;
     .category {
-      @apply flex flex-row gap-2 items-center bg-gray-50 rounded-2xl p-4 w-full justify-between;
+      @apply flex flex-row gap-2 items-center rounded-2xl p-4 w-full justify-between;
+      background-color: var(--category-bg);
+      border: 1px solid var(--card-border);
+      transition: background-color .25s ease, border-color .25s ease;
     }
   }
   .back-button {
@@ -85,7 +125,21 @@ form {
   }
 
   .resume-card {
-    @apply flex flex-col gap-8 h-[560px] w-full lg:w-[450px] xl:w-[490px] bg-white rounded-2xl p-4;
+    @apply flex flex-col gap-8 h-[560px] w-full lg:w-[450px] xl:w-[490px] rounded-2xl p-4;
+    background-color: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    transition: background-color .25s ease, color .25s ease, transform .25s ease, box-shadow .25s ease;
+  }
+  .resume-card:hover {
+    transform: translateY(-6px);
+  }
+  .fade-in {
+    animation: fadeIn .4s ease both;
+  }
+  .text-muted {
+    color: var(--muted-text);
   }
 
   .resume-card-header {
@@ -97,7 +151,11 @@ form {
   }
 
   .navbar {
-    @apply flex flex-row justify-between items-center bg-white rounded-full p-4 w-full px-10 max-w-[1200px] mx-auto;
+    @apply flex flex-row justify-between items-center rounded-full p-4 w-full px-10 max-w-[1200px] mx-auto;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    transition: background-color .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease;
   }
 
   .score-badge {
@@ -109,10 +167,30 @@ form {
   }
 
   .uplader-drag-area {
-    @apply relative p-8 text-center transition-all duration-700 cursor-pointer bg-white rounded-2xl min-h-[208px];
+    @apply relative p-8 text-center transition-all duration-700 cursor-pointer rounded-2xl min-h-[208px];
+    background-color: var(--card-bg);
+    border: 1px dashed var(--card-border);
+    transition: background-color .2s ease, border-color .2s ease;
   }
   .uploader-selected-file {
-    @apply flex items-center justify-between p-3 bg-gray-50 rounded-2xl;
+    @apply flex items-center justify-between p-3 rounded-2xl;
+    background-color: var(--category-bg);
+    border: 1px solid var(--card-border);
+  }
+
+  /* Icon-style button for navbar */
+  .icon-btn {
+    transition: background-color .2s ease, color .2s ease;
+    background: transparent;
+  }
+  .icon-btn:hover {
+    background-color: rgba(2,6,23,0.06);
+  }
+  .theme-dark .icon-btn:hover {
+    background-color: rgba(255,255,255,0.06);
+  }
+  .theme-transition {
+    transition: background-color .25s ease, color .25s ease;
   }
 }
 
