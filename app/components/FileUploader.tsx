@@ -37,12 +37,12 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
                             <img src="/images/pdf.png" alt="pdf" className="size-10" />
                             <div className="flex items-center space-x-3">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700 truncate max-w-xs">
+                                    <p className="text-sm font-medium truncate max-w-xs">
                                         {file.name}
                                     </p>
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-muted">
                                         {formatSize(file.size)}
-                                    </p>
+                                    </p> 
                                 </div>
                             </div>
                             <button className="p-2 cursor-pointer" onClick={(e) => {
@@ -56,12 +56,12 @@ const FileUploader = ({ onFileSelect }: FileUploaderProps) => {
                             <div className="mx-auto w-16 h-16 flex items-center justify-center mb-2">
                                 <img src="/icons/info.svg" alt="upload" className="size-20" />
                             </div>
-                            <p className="text-lg text-gray-500">
+                            <p className="text-lg text-muted">
                                 <span className="font-semibold">
                                     Click to upload
                                 </span> or drag and drop
                             </p>
-                            <p className="text-lg text-gray-500">PDF (max {formatSize(maxFileSize)})</p>
+                            <p className="text-lg text-muted">PDF (max {formatSize(maxFileSize)})</p> 
                         </div>
                     )}
                 </div>

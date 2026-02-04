@@ -36,6 +36,10 @@ const Navbar = () => {
                   )}
                 </button>
 
+                <a href="mailto:hello@readresume.app?subject=Feedback%20for%20ReadResume" className="feedback-link px-4 py-2 rounded-md hover:underline" aria-label="Share feedback">
+                    Share Feedback
+                </a>
+
                 <Link to="/upload" className="primary-button w-fit">
                     Upload Resume
                 </Link>

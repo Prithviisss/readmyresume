@@ -32,40 +32,71 @@
 
 /* Dark theme overrides */
 .theme-dark {
-  --bg: #0b1220;
+  /* deep navy -> black gradient for a rich dark-blue/black background */
+  --bg: linear-gradient(180deg,#051028 0%, #020412 70%);
   --text: #e6eef8;
   --muted-text: #9aa6bf;
-  --card-bg: #0e1624;
+  --card-bg: rgba(6,17,35,0.92);
   --card-border: rgba(255,255,255,0.04);
   --category-bg: rgba(255,255,255,0.02);
   --primary-1: #6f7bff;
   --primary-2: #4049d8;
   --accent: #4957eb;
-  --shadow: 0 12px 36px rgba(2,6,23,0.6);
+  --shadow: 0 16px 46px rgba(2,6,23,0.6);
+  /* Gradient var overrides for visibility */
+  --gradient-start: #9fb1ff;
+  --gradient-mid: #dfe9ff;
+  --gradient-end: #b3c8ff;
+  --gradient-strong-start: #dfe9ff;
+  --gradient-strong-end: #cfe0ff;
 }
 
 html,
 body {
   background: var(--bg);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
   color: var(--text);
   font-family: var(--font-sans);
-  transition: background-color .3s ease, color .3s ease;
+  transition: background .45s cubic-bezier(.2,.8,.2,1), color .3s ease;
 }
 
 main {
   @apply min-h-screen pt-10;
 }
 h1 {
-  @apply text-6xl  text-gradient leading-tight tracking-[-2px] font-semibold;
+  @apply text-6xl leading-tight tracking-[-2px] font-extrabold;
+  margin: 0;
+  line-height: 1.02;
+  color: var(--text);
+  transition: color .25s ease, text-shadow .25s ease, transform .25s ease;
+} 
+
+.theme-dark h1 {
+  transform: translateZ(0);
+  text-shadow: 0 10px 40px rgba(79,90,255,0.12), 0 4px 14px rgba(0,0,0,0.6);
 }
 
 h2 {
-  @apply text-3xl text-dark-200;
+  @apply text-3xl;
+  color: var(--muted-text);
+  font-weight: 600;
+}
+
+.page-heading h2 {
+  color: var(--muted-text);
+}
+
+.theme-dark .page-heading h2 {
+  color: rgba(230,238,248,0.92);
+  text-shadow: 0 4px 18px rgba(2,6,23,0.45);
 }
 
 label {
-  @apply text-dark-200;
-}
+  color: var(--muted-text);
+  transition: color .2s ease;
+} 
 input {
   @apply w-full p-4 inset-shadow rounded-2xl focus:outline-none;
   background-color: var(--card-bg);
@@ -88,7 +119,37 @@ form {
 
 @layer components {
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#AB8C95] via-[#000000] to-[#8E97C5];
+    /* Use CSS vars for control and theme overrides */
+    background-image: linear-gradient(90deg, var(--gradient-start, #AB8C95), var(--gradient-mid, #000000), var(--gradient-end, #8E97C5));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--text); /* fallback */
+    transition: background-image .25s ease, color .25s ease, text-shadow .25s ease, transform .25s ease;
+  }
+
+  /* Strong gradient variant for primary headings */
+  .text-gradient-strong {
+    background-image: linear-gradient(90deg, var(--gradient-strong-start, #cfe0ff), var(--gradient-strong-end, #7fa1ff));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 10px 40px rgba(79,90,255,0.14);
+    transform: translateZ(0);
+  }
+
+  /* Subtle gradient for subtitles */
+  .text-gradient-subtle {
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.8));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    opacity: 0.95;
+  }
+
+  /* Dark-mode overrides for gradients */
+  .theme-dark .text-gradient,
+  .theme-dark .text-gradient-strong {
+    background-image: linear-gradient(90deg, var(--gradient-strong-start, #dfe9ff), var(--gradient-strong-end, #cfe0ff));
   }
   .gradient-border {
     @apply bg-gradient-to-b from-light-blue-100 to-light-blue-200 p-4 rounded-2xl;
@@ -118,7 +179,36 @@ form {
     @apply flex flex-col items-center gap-8 pt-12 mx-15 pb-5;
   }
   .page-heading {
-    @apply flex flex-col items-center gap-8 max-w-4xl text-center;
+    @apply flex flex-col items-center gap-8 max-w-4xl text-center relative p-8 rounded-2xl;
+    background-color: var(--heading-bg, rgba(255,255,255,0.64));
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(6px);
+    transition: background-color .25s ease, color .25s ease, box-shadow .25s ease, transform .25s ease;
+  }
+  .page-heading h1.hero-title {
+    font-weight: 800;
+    font-size: 3.25rem;
+    color: var(--text);
+    text-shadow: 0 6px 24px rgba(2,6,23,0.06);
+    margin: 0;
+  }
+  .page-heading h2.hero-subtitle {
+    color: var(--muted-text);
+    font-weight: 600;
+  }
+  /* Heading background variables */
+  :root {
+    --heading-bg: rgba(255,255,255,0.64);
+  }
+  .theme-dark {
+    --heading-bg: rgba(6,12,28,0.48);
+  }
+  .theme-dark .page-heading h1.hero-title {
+    text-shadow: 0 10px 40px rgba(7,18,45,0.6);
+    color: rgba(230,238,248,0.96);
+  }
+  .theme-dark .page-heading {
+    border-color: rgba(255,255,255,0.04);
   }
   .resumes-section {
     @apply flex flex-wrap max-lg:flex-col gap-6 items-start  w-full max-w-[1850px] justify-evenly;
@@ -140,6 +230,23 @@ form {
   }
   .text-muted {
     color: var(--muted-text);
+  }
+
+  /* Category/tip helpers */
+  .category-box {
+    background-color: var(--category-bg);
+    border: 1px solid var(--card-border);
+    transition: background-color .2s ease, border-color .2s ease;
+  }
+  .tip-good {
+    background-color: rgba(45,197,160,0.06);
+    border: 1px solid rgba(45,197,160,0.12);
+    color: rgba(45,197,160,1);
+  }
+  .tip-improve {
+    background-color: rgba(252,199,87,0.06);
+    border: 1px solid rgba(252,199,87,0.12);
+    color: rgba(204,102,0,1);
   }
 
   .resume-card-header {
@@ -191,6 +298,41 @@ form {
   }
   .theme-transition {
     transition: background-color .25s ease, color .25s ease;
+  }
+
+  .feedback-link {
+    color: var(--muted-text);
+    font-weight: 600;
+    transition: color .15s ease, text-shadow .15s ease, transform .15s ease;
+  }
+  .feedback-link:hover {
+    color: var(--accent);
+    transform: translateY(-1px);
+    text-shadow: 0 6px 20px rgba(79,90,255,0.08);
+  }
+  .theme-dark .feedback-link {
+    color: rgba(230,238,248,0.9);
+  }
+  .theme-dark .feedback-link:hover {
+    color: #cfe0ff;
+    text-shadow: 0 8px 30px rgba(79,90,255,0.14);
+  }
+
+  /* Ensure main's background image can be overridden by theme variables */
+  main {
+    background-image: var(--main-bg, url('/images/bg-main.svg'));
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    transition: background .45s cubic-bezier(.2,.8,.2,1);
+  }
+  /* Force override for elements that set a background via Tailwind utilities */
+  .theme-dark main {
+    background-image: var(--main-bg) !important;
+    background-color: transparent;
+  }
+  .theme-dark {
+    --main-bg: linear-gradient(180deg, rgba(5,16,40,0.85), rgba(2,4,8,0.95));
   }
 }
 

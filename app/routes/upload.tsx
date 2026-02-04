@@ -84,15 +84,15 @@ const Upload = () => {
 
             <section className="main-section">
                 <div className="page-heading py-16">
-                    <h1>Smart feedback for your dream job</h1>
+                    <h1 className="hero-title text-gradient-strong">Smart feedback for your dream job</h1>
                     {isProcessing ? (
                         <>
-                            <h2>{statusText}</h2>
+                            <h2 className="hero-subtitle text-gradient-subtle">{statusText}</h2>
                             <img src="/images/resume-scan.gif" className="w-full" />
                         </>
                     ) : (
-                        <h2>Drop your resume for an ATS score and improvement tips</h2>
-                    )}
+                        <h2 className="hero-subtitle text-gradient-subtle">Drop your resume for an ATS score and improvement tips</h2>
+                    )} 
                     {!isProcessing && (
                         <form id="upload-form" onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8">
                             <div className="form-div">
