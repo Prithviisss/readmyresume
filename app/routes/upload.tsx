@@ -1,15 +1,14 @@
 import {type FormEvent, useState} from 'react'
 import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
-import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {convertPdfToImage} from "~/lib/pdf2img";
 import {generateUUID} from "~/lib/utils";
 import {prepareInstructions} from "../../constants";
 import {logDebug, generateTestFeedback} from "~/lib/debug";
+import {analyzeResumeWithGemini, validateGeminiSetup} from "~/lib/gemini";
 
 const Upload = () => {
-    const { auth, isLoading, fs, ai, kv } = usePuterStore();
     const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false);
     const [statusText, setStatusText] = useState('');
@@ -22,44 +21,88 @@ const Upload = () => {
         setFile(file)
     }
 
+    /**
+     * Extract text from PDF file
+     */
+    const extractTextFromPDF = async (pdfFile: File): Promise<string> => {
+        try {
+            const arrayBuffer = await pdfFile.arrayBuffer();
+            const pdfjsLib = (window as any).pdfjsLib;
+            
+            if (!pdfjsLib) {
+                throw new Error('PDF.js library not loaded');
+            }
+
+            // Set worker if not already set
+            if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+            }
+
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            
+            let text = '';
+            for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 10); pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                text += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+            }
+            return text;
+        } catch (err) {
+            console.error('Error extracting PDF text:', err);
+            throw new Error('Failed to extract text from PDF. Ensure the PDF is readable and contains text.');
+        }
+    };
+
     const handleAnalyze = async ({ companyName, jobTitle, jobDescription, file, skipAnalysis = false }: { companyName: string, jobTitle: string, jobDescription: string, file: File, skipAnalysis?: boolean  }) => {
         try {
-            logDebug('Analysis started', { companyName, jobTitle, fileName: file.name });
+            logDebug('Analysis started', { companyName, jobTitle, useGemini: true });
             setIsProcessing(true);
             setError('');
             setCanRetry(false);
             setAnalysisTimeout(false);
 
-            setStatusText('Uploading the file...');
-            const uploadedFile = await fs.upload([file]);
-            if(!uploadedFile) throw new Error('Failed to upload resume file');
-            logDebug('File uploaded', { path: uploadedFile.path });
+            // Validate Gemini is configured
+            if (!validateGeminiSetup()) {
+                throw new Error('Google Gemini API key not configured. Please add VITE_GEMINI_API_KEY to your .env file');
+            }
 
-            setStatusText('Converting to image...');
+            setStatusText('Converting PDF to image...');
             const imageFile = await convertPdfToImage(file);
             if(!imageFile.file) throw new Error('Failed to convert PDF to image');
             logDebug('PDF converted to image', { fileName: imageFile.file.name });
 
-            setStatusText('Uploading the image...');
-            const uploadedImage = await fs.upload([imageFile.file]);
-            if(!uploadedImage) throw new Error('Failed to upload resume preview image');
-            logDebug('Image uploaded', { path: uploadedImage.path });
+            setStatusText('Extracting resume text...');
+            const resumeText = await extractTextFromPDF(file);
+            if (!resumeText || resumeText.length < 50) {
+                throw new Error('Could not extract meaningful text from PDF. Ensure it\'s a valid, text-based resume.');
+            }
+            logDebug('PDF text extracted', { length: resumeText.length });
+
+            // Generate unique ID and image URL
+            const uuid = generateUUID();
+            const imageBlob = imageFile.file;
+            const imageUrl = URL.createObjectURL(imageBlob);
 
             setStatusText('Preparing data...');
-            const uuid = generateUUID();
             const data: any = {
                 id: uuid,
-                resumePath: uploadedFile.path,
-                imagePath: uploadedImage.path,
+                imagePath: imageUrl,
                 companyName, 
                 jobTitle, 
                 jobDescription,
                 feedback: null,
             }
-            await kv.set(`resume:${uuid}`, JSON.stringify(data));
-            logDebug('Resume data saved', { uuid });
+            
+            // Store in localStorage
+            const storageData = {
+                ...data,
+            };
+            localStorage.setItem(`resume:${uuid}`, JSON.stringify(storageData));
+            // Also store the image blob for later retrieval
+            localStorage.setItem(`resume:${uuid}:image`, imageUrl);
+            logDebug('Resume data saved to localStorage', { uuid });
 
-            // Allow skipping analysis (useful if AI is slow/timing out)
+            // Allow skipping analysis
             if (skipAnalysis) {
                 setStatusText('Skipping analysis, redirecting...');
                 logDebug('Analysis skipped');
@@ -69,70 +112,62 @@ const Upload = () => {
                 return;
             }
 
-            setStatusText('Analyzing resume with AI (this may take 30-60 seconds)...');
-            logDebug('Starting AI analysis', { uploadedFilePath: uploadedFile.path });
+            setStatusText('Analyzing resume with Google Gemini (30-60 seconds)...');
+            logDebug('Starting Gemini analysis');
 
             // Add timeout protection (60 seconds)
-            const timeoutPromise = new Promise((_, reject) =>
+            const timeoutPromise = new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error('TIMEOUT')), 60000)
             );
 
-            let feedback;
+            let analysisText: string;
             try {
-                logDebug('Sending to AI', { model: 'claude-3-7-sonnet' });
-                feedback = await Promise.race([
-                    ai.feedback(
-                        uploadedFile.path,
+                logDebug('Sending to Gemini API', { textLength: resumeText.length });
+                
+                analysisText = await Promise.race([
+                    analyzeResumeWithGemini(
+                        resumeText,
                         prepareInstructions({ jobTitle, jobDescription })
                     ),
                     timeoutPromise
-                ]);
-                logDebug('AI feedback received', { type: typeof feedback });
+                ]) as string;
+                
+                logDebug('Gemini analysis received', { length: analysisText?.length });
             } catch (err: any) {
-                logDebug('AI feedback error', { error: err.message, type: err.name });
+                logDebug('Gemini error', { error: err.message });
                 if (err.message === 'TIMEOUT') {
                     setAnalysisTimeout(true);
-                    throw new Error('Analysis took too long (60+ seconds). This usually means the AI service is busy. You can proceed without detailed analysis or try again.');
+                    throw new Error('Analysis took too long. Try a shorter resume or skip analysis.');
                 }
-                const errorMsg = err?.message || err?.response?.message || err?.toString() || 'Unknown AI service error';
-                throw new Error(`AI Analysis failed: ${errorMsg}. This could be due to: 1) AI service being slow/unavailable, 2) Invalid API key/quota, 3) Resume file format issue. Try again or skip analysis.`);
+                const errorMsg = err?.message || 'Unknown error';
+                throw new Error(`Analysis failed: ${errorMsg}`);
             }
 
-            if (!feedback) throw new Error('No response from AI analysis - please try again');
+            if (!analysisText) throw new Error('No response from analysis service');
 
-            let feedbackText = '';
-            const feedbackObj = feedback as any;
-            
-            logDebug('Processing feedback structure', { keys: Object.keys(feedbackObj || {}) });
-            
-            if (typeof feedbackObj?.message?.content === 'string') {
-                feedbackText = feedbackObj.message.content;
-            } else if (Array.isArray(feedbackObj?.message?.content)) {
-                feedbackText = feedbackObj.message.content[0]?.text || '';
-            } else if (typeof feedbackObj?.content === 'string') {
-                feedbackText = feedbackObj.content;
-            } else if (Array.isArray(feedbackObj?.content)) {
-                feedbackText = feedbackObj.content[0]?.text || feedbackObj.content[0] || '';
-            }
-
-            logDebug('Extracted feedback text length', { length: feedbackText.length, preview: feedbackText.substring(0, 100) });
-
-            if (!feedbackText) {
-                logDebug('Feedback extraction failed', { fullResponse: JSON.stringify(feedbackObj).substring(0, 500) });
-                throw new Error('Failed to extract analysis response. Response format was unexpected.');
-            }
+            logDebug('Parsing analysis response', { preview: analysisText.substring(0, 100) });
 
             try {
-                data.feedback = JSON.parse(feedbackText);
+                // Remove markdown code blocks if present
+                let cleanText = analysisText
+                    .replace(/```json\n?/g, '')
+                    .replace(/```\n?/g, '')
+                    .trim();
+
+                data.feedback = JSON.parse(cleanText);
                 logDebug('Parsed feedback successfully', { score: data.feedback?.overallScore });
             } catch (parseErr: any) {
-                logDebug('JSON parse error', { text: feedbackText.substring(0, 300), error: parseErr.message });
-                throw new Error(`Failed to parse AI response. Response was: "${feedbackText.substring(0, 300)}..."`);
+                logDebug('JSON parse failed', { text: analysisText.substring(0, 300) });
+                throw new Error(`Failed to parse analysis response: ${analysisText.substring(0, 150)}...`);
             }
 
-            await kv.set(`resume:${uuid}`, JSON.stringify(data));
+            // Store final result
+            localStorage.setItem(`resume:${uuid}`, JSON.stringify({
+                ...data,
+            }));
+            
             setStatusText('Analysis complete, redirecting...');
-            logDebug('Analysis complete', { uuid });
+            logDebug('Analysis complete and stored', { uuid });
             setTimeout(() => {
                 navigate(`/resume/${uuid}`);
             }, 500);
@@ -140,7 +175,7 @@ const Upload = () => {
             const errorMsg = err?.message || 'Unknown error occurred';
             logDebug('Analysis error', { errorMsg });
             setError(errorMsg);
-            setStatusText('Error during analysis');
+            setStatusText('Error');
             setCanRetry(true);
             setIsProcessing(false);
             console.error('Analysis error:', err);
@@ -178,7 +213,7 @@ const Upload = () => {
                             {error ? (
                                 <div className="mt-6 p-4 bg-red-50 border border-red-300 rounded-lg">
                                     <p className="text-red-700 font-semibold mb-3">⚠️ {error}</p>
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-3 flex-wrap">
                                         {canRetry && (
                                             <button
                                                 onClick={() => {
@@ -193,9 +228,9 @@ const Upload = () => {
                                                         }
                                                     }
                                                 }}
-                                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                                             >
-                                                🔄 Retry Analysis
+                                                🔄 Retry
                                             </button>
                                         )}
                                         {analysisTimeout && (
@@ -212,9 +247,9 @@ const Upload = () => {
                                                         }
                                                     }
                                                 }}
-                                                className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+                                                className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm"
                                             >
-                                                ⏭️ Skip Analysis & Proceed
+                                                ⏭️ Skip & Proceed
                                             </button>
                                         )}
                                         <button
@@ -224,7 +259,7 @@ const Upload = () => {
                                                 setCanRetry(false);
                                                 setAnalysisTimeout(false);
                                             }}
-                                            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
                                         >
                                             ✕ Cancel
                                         </button>
@@ -261,20 +296,35 @@ const Upload = () => {
                                 Analyze Resume
                             </button>
 
-                            {/* Debug section - Remove in production */}
-                            <details className="mt-4 p-3 bg-gray-100 rounded text-sm">
-                                <summary className="cursor-pointer font-semibold text-gray-700">
-                                    🔧 Troubleshooting
+                            {/* Setup Instructions */}
+                            <details className="mt-4 p-3 bg-blue-50 rounded text-sm border border-blue-300">
+                                <summary className="cursor-pointer font-semibold text-blue-900">
+                                    ℹ️ Google Gemini API Setup
                                 </summary>
-                                <div className="mt-3 text-gray-600 space-y-2">
-                                    <p>If analysis is failing:</p>
-                                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                                        <li>Check browser console (F12) for error messages</li>
-                                        <li>Ensure Puter.js is loaded (check window.puter in console)</li>
-                                        <li>Try using test data to verify the app works</li>
-                                        <li>Check your Puter account has AI credits/quota</li>
-                                    </ol>
-                                    {!isProcessing && (
+                                <div className="mt-3 text-blue-800 space-y-2">
+                                    <p><strong>Step 1:</strong> Get API Key</p>
+                                    <ul className="list-disc list-inside ml-2 spacing-y-1">
+                                        <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline">Google AI Studio</a></li>
+                                        <li>Click "Create API Key"</li>
+                                        <li>Copy the generated API key</li>
+                                    </ul>
+                                    
+                                    <p className="mt-2"><strong>Step 2:</strong> Configure Project</p>
+                                    <ul className="list-disc list-inside ml-2">
+                                        <li>Create <code className="bg-white px-1">.env</code> file in project root</li>
+                                        <li>Add: <code className="bg-white px-1">VITE_GEMINI_API_KEY=your-api-key-here</code></li>
+                                        <li>Restart dev server</li>
+                                    </ul>
+
+                                    <p className="mt-2"><strong>Status: </strong>
+                                        {validateGeminiSetup() ? (
+                                            <span className="text-green-600 font-bold">✅ API Key Configured</span>
+                                        ) : (
+                                            <span className="text-red-600 font-bold">❌ API Key Missing</span>
+                                        )}
+                                    </p>
+
+                                    {!validateGeminiSetup() && (
                                         <button
                                             type="button"
                                             onClick={async () => {
@@ -282,19 +332,18 @@ const Upload = () => {
                                                 const uuid = generateUUID();
                                                 const testData = {
                                                     id: uuid,
-                                                    resumePath: '/test/resume.pdf',
-                                                    imagePath: '/test/resume.png',
                                                     companyName: 'Test Company',
                                                     jobTitle: 'Test Position',
                                                     jobDescription: 'Test job description',
+                                                    imagePath: '/images/resume_01.png',
                                                     feedback: generateTestFeedback(),
                                                 };
-                                                await kv.set(`resume:${uuid}`, JSON.stringify(testData));
+                                                localStorage.setItem(`resume:${uuid}`, JSON.stringify(testData));
                                                 navigate(`/resume/${uuid}`);
                                             }}
-                                            className="mt-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                                            className="mt-3 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
                                         >
-                                            Test with Sample Data
+                                            📊 Try with Sample Data
                                         </button>
                                     )}
                                 </div>

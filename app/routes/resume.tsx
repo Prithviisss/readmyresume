@@ -1,6 +1,5 @@
 import {Link, useNavigate, useParams} from "react-router";
 import {useEffect, useState} from "react";
-import {usePuterStore} from "~/lib/puter";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
@@ -12,7 +11,6 @@ export const meta = () => ([
 ])
 
 const Resume = () => {
-    const { auth, isLoading, fs, kv } = usePuterStore();
     const { id } = useParams();
     const [imageUrl, setImageUrl] = useState('');
     const [resumeUrl, setResumeUrl] = useState('');
@@ -22,33 +20,42 @@ const Resume = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        if(!isLoading && !auth.isAuthenticated) navigate(`/auth?next=/resume/${id}`);
-    }, [isLoading])
-
-    useEffect(() => {
         const loadResume = async () => {
-            const resume = await kv.get(`resume:${id}`);
+            if (!id) return;
 
-            if(!resume) return;
+            try {
+                // Load from localStorage
+                const resumeData = localStorage.getItem(`resume:${id}`);
+                if (!resumeData) {
+                    console.error('Resume not found');
+                    return;
+                }
 
-            const data = JSON.parse(resume);
+                const data = JSON.parse(resumeData);
 
-            const resumeBlob = await fs.read(data.resumePath);
-            if(!resumeBlob) return;
+                // Set image URL
+                if (data.imagePath) {
+                    if (data.imagePath.startsWith('blob:')) {
+                        setImageUrl(data.imagePath);
+                    } else {
+                        // Try to get from localStorage if it's a stored image
+                        const storedImageUrl = localStorage.getItem(`resume:${id}:image`);
+                        if (storedImageUrl) {
+                            setImageUrl(storedImageUrl);
+                        } else {
+                            setImageUrl(data.imagePath);
+                        }
+                    }
+                }
 
-            const pdfBlob = new Blob([resumeBlob], { type: 'application/pdf' });
-            const resumeUrl = URL.createObjectURL(pdfBlob);
-            setResumeUrl(resumeUrl);
-
-            const imageBlob = await fs.read(data.imagePath);
-            if(!imageBlob) return;
-            const imageUrl = URL.createObjectURL(imageBlob);
-            setImageUrl(imageUrl);
-
-            setFeedback(data.feedback);
-            setJobTitle(data.jobTitle);
-            setCompanyName(data.companyName);
-            console.log({resumeUrl, imageUrl, feedback: data.feedback, jobTitle: data.jobTitle, companyName: data.companyName });
+                setFeedback(data.feedback);
+                setJobTitle(data.jobTitle);
+                setCompanyName(data.companyName);
+                
+                console.log('Resume loaded:', { id, feedback: data.feedback, jobTitle: data.jobTitle, companyName: data.companyName });
+            } catch (err) {
+                console.error('Error loading resume:', err);
+            }
         }
 
         loadResume();
