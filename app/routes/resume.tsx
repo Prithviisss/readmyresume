@@ -4,6 +4,7 @@ import {usePuterStore} from "~/lib/puter";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
+import FitScore from "~/components/FitScore";
 
 export const meta = () => ([
     { title: 'Resumind | Review ' },
@@ -16,6 +17,8 @@ const Resume = () => {
     const [imageUrl, setImageUrl] = useState('');
     const [resumeUrl, setResumeUrl] = useState('');
     const [feedback, setFeedback] = useState<Feedback | null>(null);
+    const [jobTitle, setJobTitle] = useState<string | undefined>();
+    const [companyName, setCompanyName] = useState<string | undefined>();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -43,7 +46,9 @@ const Resume = () => {
             setImageUrl(imageUrl);
 
             setFeedback(data.feedback);
-            console.log({resumeUrl, imageUrl, feedback: data.feedback });
+            setJobTitle(data.jobTitle);
+            setCompanyName(data.companyName);
+            console.log({resumeUrl, imageUrl, feedback: data.feedback, jobTitle: data.jobTitle, companyName: data.companyName });
         }
 
         loadResume();
@@ -75,6 +80,11 @@ const Resume = () => {
                     <h2 className="text-4xl !text-black font-bold">Resume Review</h2>
                     {feedback ? (
                         <div className="flex flex-col gap-8 animate-in fade-in duration-1000">
+                            <FitScore 
+                                feedback={feedback} 
+                                jobTitle={jobTitle}
+                                companyName={companyName}
+                            />
                             <Summary feedback={feedback} />
                             <ATS score={feedback.ATS.score || 0} suggestions={feedback.ATS.tips || []} />
                             <Details feedback={feedback} />

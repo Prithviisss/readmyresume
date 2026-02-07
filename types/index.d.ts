@@ -5,6 +5,14 @@ interface Resume {
     imagePath: string;
     resumePath: string;
     feedback: Feedback;
+    fitScore?: FitScore;
+}
+
+interface FitScore {
+    interviewLikelihood: number;
+    matchedSkills: string[];
+    missingSkills: string[];
+    recommendations: string[];
 }
 
 interface Feedback {
