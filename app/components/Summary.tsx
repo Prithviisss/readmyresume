@@ -21,7 +21,21 @@ const Category = ({ title, score }: { title: string, score: number }) => {
     )
 }
 
-const Summary = ({ feedback }: { feedback: Feedback }) => {
+const Summary = ({ feedback }: { feedback: Feedback | null }) => {
+    if (!feedback) {
+        return (
+            <div className="resume-card fade-in">
+                <div className="flex flex-col gap-4 p-6">
+                    <h2 className="text-2xl font-bold">Resume Score</h2>
+                    <p className="text-sm text-muted">Analysis not available</p>
+                    <div className="flex items-center justify-center py-8">
+                        <p className="text-gray-600">Analysis is pending or was skipped.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
     return (
         <div className="resume-card fade-in">
             <div className="flex flex-row items-center p-4 gap-8">

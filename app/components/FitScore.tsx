@@ -1,10 +1,32 @@
 interface FitScoreProps {
-  feedback: Feedback;
+  feedback: Feedback | null;
   jobTitle?: string;
   companyName?: string;
 }
 
 const FitScore = ({ feedback, jobTitle, companyName }: FitScoreProps) => {
+  // Handle null feedback
+  if (!feedback) {
+    return (
+      <div className="resume-card fade-in">
+        <div className="p-6">
+          <h2 className="text-3xl font-bold mb-2">Interview Likelihood Prediction</h2>
+          <p className="text-sm text-muted mb-6">
+            Analysis not available
+          </p>
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+              <span className="text-2xl">⏳</span>
+            </div>
+            <p className="text-gray-600 text-center">
+              Analysis is pending or was skipped. <br /> Return to upload a new resume to generate detailed feedback.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   // Calculate interview likelihood based on weighted scores
   const interviewLikelihood = Math.round(
     feedback.ATS.score * 0.4 +

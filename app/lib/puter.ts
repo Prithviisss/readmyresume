@@ -330,28 +330,43 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     const feedback = async (path: string, message: string) => {
         const puter = getPuter();
         if (!puter) {
+            console.error("Puter.js not available");
             setError("Puter.js not available");
             return;
         }
 
-        return puter.ai.chat(
-            [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "file",
-                            puter_path: path,
-                        },
-                        {
-                            type: "text",
-                            text: message,
-                        },
-                    ],
-                },
-            ],
-            { model: "claude-3-7-sonnet" }
-        ) as Promise<AIResponse | undefined>;
+        try {
+            console.log("Starting AI feedback analysis for path:", path);
+            console.log("Message:", message.substring(0, 100) + "...");
+            
+            const response = await puter.ai.chat(
+                [
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "file",
+                                puter_path: path,
+                            },
+                            {
+                                type: "text",
+                                text: message,
+                            },
+                        ],
+                    },
+                ],
+                { model: "claude-3-7-sonnet" }
+            );
+
+            console.log("AI Response received:", response);
+            return response as Promise<AIResponse | undefined>;
+        } catch (err: any) {
+            const errorMsg = err?.message || err?.toString() || "Unknown error";
+            console.error("AI feedback error:", errorMsg);
+            console.error("Full error:", err);
+            setError(`AI Analysis Error: ${errorMsg}`);
+            throw err;
+        }
     };
 
     const img2txt = async (image: string | File | Blob, testMode?: boolean) => {
